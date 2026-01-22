@@ -15,64 +15,48 @@ contract DeployDAO is Script {
     uint256 public constant MIN_DELAY = 3600; // 1 hour delay
 
     function run() external {
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address deployer = vm.addr(deployerPrivateKey);
+    uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+    address deployer = vm.addr(deployerPrivateKey);
 
-        vm.startBroadcast(deployerPrivateKey);
+    vm.startBroadcast(deployerPrivateKey);
 
-        // 1. Deploy Governance Token
-        GOVToken token = new GOVToken();
-
-        // 2. Deploy Timelock
-        // Initially, the deployer is the admin to set up roles. 
-        // Proposers and executors are empty lists for now.
+    GOVToken token = new GOVToken();
+    DAOTimelock timelock;
+    
+    // Use a block to deploy and configure the timelock
+    {
         address[] memory proposers = new address[](0);
         address[] memory executors = new address[](0);
-        DAOTimelock timelock = new DAOTimelock(
-            MIN_DELAY,
-            proposers,
-            executors,
-            deployer
-        );
+        timelock = new DAOTimelock(MIN_DELAY, proposers, executors, deployer);
+    }
 
-        // 3. Deploy Governor Logic Contract
+    DAOGovernor governor;
+    // Use a block to deploy and initialize the governor proxy
+    {
         DAOGovernor governorLogic = new DAOGovernor();
-
-        // 4. Deploy Proxy for Governor
-        // Encode the initialize call for the proxy
         bytes memory data = abi.encodeWithSelector(
             DAOGovernor.initialize.selector,
-            IVotes(address(token)),
-            TimelockControllerUpgradeable(payable(address(timelock)))
+            token,
+            timelock
         );
-        
         ERC1967Proxy proxy = new ERC1967Proxy(address(governorLogic), data);
-        DAOGovernor governor = DAOGovernor(payable(address(proxy)));
-
-        // 5. Deploy Treasury
-        Treasury treasury = new Treasury();
-
-        // --- 6. Set Up Roles (The "Wiring") ---
-
-        // Grant roles on the Timelock to the Governor Proxy
-        bytes32 proposerRole = timelock.PROPOSER_ROLE();
-        bytes32 executorRole = timelock.EXECUTOR_ROLE();
-        bytes32 cancellerRole = timelock.CANCELLER_ROLE();
-        bytes32 adminRole = timelock.TIMELOCK_ADMIN_ROLE();
-
-        timelock.grantRole(proposerRole, address(governor));
-        timelock.grantRole(cancellerRole, address(governor));
-        
-        // Allow anyone to execute a passed proposal (standard for many DAOs)
-        timelock.grantRole(executorRole, address(0));
-
-        // Transfer Treasury ownership to the Timelock
-        treasury.transferOwnership(address(timelock));
-
-        // FINALLY: Revoke the deployer's admin role on the Timelock
-        // After this, only the DAO (via the Timelock itself) can change roles.
-        timelock.revokeRole(adminRole, deployer);
-
-        vm.stopBroadcast();
+        governor = DAOGovernor(payable(address(proxy)));
     }
+
+    Treasury treasury = new Treasury();
+
+    // Roles block
+    {
+        timelock.grantRole(timelock.PROPOSER_ROLE(), address(governor));
+        timelock.grantRole(timelock.CANCELLER_ROLE(), address(governor));
+        timelock.grantRole(timelock.EXECUTOR_ROLE(), address(0));
+        
+        treasury.transferOwnership(address(timelock));
+        
+        // Finalize
+        timelock.revokeRole(timelock.DEFAULT_ADMIN_ROLE(), deployer);
+    }
+
+    vm.stopBroadcast();
+}
 }
