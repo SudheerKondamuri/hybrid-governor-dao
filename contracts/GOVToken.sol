@@ -14,7 +14,7 @@ contract GOVToken is ERC20, ERC20Permit, ERC20Votes {
         _mint(msg.sender, 1000000 * 10 ** decimals());
     }
 
-    // In OpenZeppelin v5, hooks are consolidated into _update
+    // In OZ v5, _update handles all balance and voting power snapshots
     function _update(address from, address to, uint256 value)
         internal
         override(ERC20, ERC20Votes)
@@ -22,7 +22,7 @@ contract GOVToken is ERC20, ERC20Permit, ERC20Votes {
         super._update(from, to, value);
     }
 
-    // Required override for ERC20Permit and Nonces
+    // Required to resolve the conflict between ERC20Permit and Nonces
     function nonces(address owner)
         public
         view
@@ -30,25 +30,5 @@ contract GOVToken is ERC20, ERC20Permit, ERC20Votes {
         returns (uint256)
     {
         return super.nonces(owner);
-    }
-        function _afterTokenTransfer(address from, address to, uint256 amount)
-        internal
-        override(ERC20, ERC20Votes)
-    {
-        super._afterTokenTransfer(from, to, amount);
-    }
-
-    function _mint(address to, uint256 amount)
-        internal
-        override(ERC20, ERC20Votes)
-    {
-        super._mint(to, amount);
-    }
-
-    function _burn(address account, uint256 amount)
-        internal
-        override(ERC20, ERC20Votes)
-    {
-        super._burn(account, amount);
     }
 }
