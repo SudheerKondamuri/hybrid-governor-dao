@@ -12,10 +12,6 @@ import {GovernorTimelockControlUpgradeable} from "@openzeppelin/contracts-upgrad
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import {TimelockControllerUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/TimelockControllerUpgradeable.sol";
 
-/**
- * @title DAOGovernor
- * @dev UUPS Upgradeable Governance contract with hybrid off-chain voting integration.
- */
 contract DAOGovernor is
     Initializable,
     UUPSUpgradeable,
@@ -33,43 +29,25 @@ contract DAOGovernor is
         _disableInitializers();
     }
 
-    /**
-     * @notice Replaces the constructor for upgradeable contracts.
-     * @param _token The address of your GOVToken (must support IVotes).
-     * @param _timelock The address of your DAOTimelock proxy.
-     */
     function initialize(IVotes _token, TimelockControllerUpgradeable _timelock) public initializer {
         __Governor_init("MyDAOGovernor");
-        __GovernorSettings_init(1, 45818, 0); // 1 block delay, ~1 week period, 0 threshold
+        __GovernorSettings_init(1, 45818, 0); 
         __GovernorVotes_init(_token);
-        __GovernorVotesQuorumFraction_init(4); // 4% quorum
+        __GovernorVotesQuorumFraction_init(4); 
         __GovernorTimelockControl_init(_timelock);
-        __UUPSUpgradeable_init();
+        // __UUPSUpgradeable_init() is not needed in v5.x
     }
 
-    /**
-     * @dev Restricts who can upgrade the logic. Only the DAO itself can authorize an upgrade
-     * through a successful governance proposal.
-     */
     function _authorizeUpgrade(address newImplementation) internal override onlyGovernance {}
 
-    /**
-     * @notice Hybrid Logic: Allows a successful DAO decision to attest to an off-chain result.
-     * @param proposalId The ID of the active on-chain proposal.
-     * @param passed Whether the off-chain vote was successful.
-     */
-    function submitOffchainVoteResult(uint256 proposalId, bool passed) 
-        public 
-        onlyGovernance 
-    {
+    function submitOffchainVoteResult(uint256 proposalId, bool passed) public onlyGovernance {
         require(state(proposalId) == ProposalState.Active, "DAOGovernor: Proposal is not active");
-
         if (passed) {
             emit OffchainVoteResultSubmitted(proposalId, passed);
         }
     }
 
-    // --- Required Overrides for Multiple Inheritance ---
+    // --- Required Overrides for OpenZeppelin v5.x ---
 
     function votingDelay() public view override(GovernorUpgradeable, GovernorSettingsUpgradeable) returns (uint256) {
         return super.votingDelay();
@@ -91,19 +69,16 @@ contract DAOGovernor is
         return super.proposalThreshold();
     }
 
-    function _execute(uint256 proposalId, address[] memory targets, uint256[] memory values, bytes[] memory calldatas, bytes32 descriptionHash)
-        internal
-        override(GovernorUpgradeable, GovernorTimelockControlUpgradeable)
-    {
-        super._execute(proposalId, targets, values, calldatas, descriptionHash);
+    function proposalNeedsQueuing(uint256 proposalId) public view override(GovernorUpgradeable, GovernorTimelockControlUpgradeable) returns (bool) {
+        return super.proposalNeedsQueuing(proposalId);
     }
 
-    function _cancel(address[] memory targets, uint256[] memory values, bytes[] memory calldatas, bytes32 descriptionHash)
-        internal
-        override(GovernorUpgradeable, GovernorTimelockControlUpgradeable)
-        returns (uint256)
-    {
-        return super._cancel(targets, values, calldatas, descriptionHash);
+    function _queueOperations(uint256 proposalId, address[] memory targets, uint256[] memory values, bytes[] memory calldatas, bytes32 descriptionHash) internal override(GovernorUpgradeable, GovernorTimelockControlUpgradeable) returns (uint256) {
+        return super._queueOperations(proposalId, targets, values, calldatas, descriptionHash);
+    }
+
+    function _executeOperations(uint256 proposalId, address[] memory targets, uint256[] memory values, bytes[] memory calldatas, bytes32 descriptionHash) internal override(GovernorUpgradeable, GovernorTimelockControlUpgradeable) {
+        super._executeOperations(proposalId, targets, values, calldatas, descriptionHash);
     }
 
     function _executor() internal view override(GovernorUpgradeable, GovernorTimelockControlUpgradeable) returns (address) {
