@@ -35,7 +35,6 @@ contract DAOGovernor is
         __GovernorVotes_init(_token);
         __GovernorVotesQuorumFraction_init(4); 
         __GovernorTimelockControl_init(_timelock);
-        // __UUPSUpgradeable_init() is not needed in v5.x
     }
 
     function _authorizeUpgrade(address newImplementation) internal override onlyGovernance {}
@@ -47,7 +46,7 @@ contract DAOGovernor is
         }
     }
 
-    // --- Required Overrides for OpenZeppelin v5.x ---
+    // --- Overrides required for OpenZeppelin v5.x ---
 
     function votingDelay() public view override(GovernorUpgradeable, GovernorSettingsUpgradeable) returns (uint256) {
         return super.votingDelay();
@@ -73,19 +72,25 @@ contract DAOGovernor is
         return super.proposalNeedsQueuing(proposalId);
     }
 
-    function _queueOperations(uint256 proposalId, address[] memory targets, uint256[] memory values, bytes[] memory calldatas, bytes32 descriptionHash) internal override(GovernorUpgradeable, GovernorTimelockControlUpgradeable) returns (uint256) {
+    // signature change: returns uint48 in v5.x
+    function _queueOperations(uint256 proposalId, address[] memory targets, uint256[] memory values, bytes[] memory calldatas, bytes32 descriptionHash) internal override(GovernorUpgradeable, GovernorTimelockControlUpgradeable) returns (uint48) {
         return super._queueOperations(proposalId, targets, values, calldatas, descriptionHash);
     }
 
+    // function name change: _execute is now _executeOperations
     function _executeOperations(uint256 proposalId, address[] memory targets, uint256[] memory values, bytes[] memory calldatas, bytes32 descriptionHash) internal override(GovernorUpgradeable, GovernorTimelockControlUpgradeable) {
         super._executeOperations(proposalId, targets, values, calldatas, descriptionHash);
+    }
+
+    function _cancel(address[] memory targets, uint256[] memory values, bytes[] memory calldatas, bytes32 descriptionHash) internal override(GovernorUpgradeable, GovernorTimelockControlUpgradeable) returns (uint256) {
+        return super._cancel(targets, values, calldatas, descriptionHash);
     }
 
     function _executor() internal view override(GovernorUpgradeable, GovernorTimelockControlUpgradeable) returns (address) {
         return super._executor();
     }
 
-    function supportsInterface(bytes4 interfaceId) public view override(GovernorUpgradeable, GovernorTimelockControlUpgradeable) returns (bool) {
+    function supportsInterface(bytes4 interfaceId) public view override(GovernorUpgradeable) returns (bool) {
         return super.supportsInterface(interfaceId);
     }
 }
