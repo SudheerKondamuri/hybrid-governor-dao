@@ -1,66 +1,79 @@
-## Foundry
+# Hybrid Governor DAO
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+A robust, upgradeable **Decentralized Autonomous Organization (DAO)** built with **Solidity** and **OpenZeppelin v5**.  
+This system implements a **hybrid governance model**, supporting both **on-chain voting** and **off-chain vote result submission**, managed via a **UUPS-upgradeable Governor** contract.
 
-Foundry consists of:
+---
 
-- **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
-- **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
-- **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
-- **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+## Table of Contents
+- Architecture
+- Core Contracts
+- Prerequisites
+- Installation
+- Testing
+- Deployment
+- Configuration
+- License
 
-## Documentation
+---
 
-https://book.getfoundry.sh/
+## Architecture
 
-## Usage
+Token (ERC20Votes) → Governor (UUPS Proxy) → Timelock → Treasury
 
-### Build
+---
 
-```shell
-$ forge build
+## Core Contracts
+
+- **GOVToken.sol** – ERC20Votes governance token
+- **DAOTimelock.sol** – TimelockController executor
+- **DAOGovernor.sol** – Upgradeable hybrid Governor
+- **Treasury.sol** – Secure DAO vault
+
+---
+
+## Prerequisites
+
+```bash
+curl -L https://foundry.paradigm.xyz | bash
+foundryup
 ```
 
-### Test
+---
 
-```shell
-$ forge test
+## Installation
+
+```bash
+git clone https://github.com/SudheerKondamuri/hybrid-governor-dao
+cd hybrid-governor-dao
+forge install
+forge build
 ```
 
-### Format
+---
 
-```shell
-$ forge fmt
+## Testing
+
+```bash
+forge test
+forge coverage --ir-minimum
 ```
 
-### Gas Snapshots
+---
 
-```shell
-$ forge snapshot
+## Deployment
+
+```bash
+forge script scripts/Deploy.s.sol:DeployDAO --rpc-url <RPC> --broadcast
 ```
 
-### Anvil
+---
 
-```shell
-$ anvil
-```
+## Configuration
+- Optimizer: 200 runs
+- via_ir = true
 
-### Deploy
+---
 
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
-
-### Cast
-
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+## License
+MIT
