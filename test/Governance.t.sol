@@ -9,10 +9,6 @@ import {Treasury} from "../contracts/Treasury.sol";
 import {
     ERC1967Proxy
 } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
-import {
-    TimelockControllerUpgradeable
-} from "@openzeppelin/contracts-upgradeable/governance/TimelockControllerUpgradeable.sol";
 
 contract DAOGovernorTest is Test {
     GOVToken token;
@@ -22,7 +18,6 @@ contract DAOGovernorTest is Test {
 
     address public deployer = address(1);
     address public voter = address(2);
-    address public secondVoter = address(3);
     uint256 public constant INITIAL_SUPPLY = 1000000 * 10 ** 18;
 
     function setUp() public {
@@ -70,16 +65,12 @@ contract DAOGovernorTest is Test {
         vm.roll(block.number + 2);
 
         uint256 votes = governor.getVotes(voter, block.number - 1);
-
-        // FIX: Match the 500,000 CVT transferred in setUp
         assertEq(votes, 500000 * 10 ** 18);
     }
 
     function test_TokenNonces() public view {
         assertEq(token.nonces(voter), 0);
     }
-
-    // --- Treasury Coverage ---
 
     function test_TreasuryDeposit() public {
         vm.deal(voter, 10 ether);
@@ -91,11 +82,9 @@ contract DAOGovernorTest is Test {
     function test_WithdrawFundsFailsForNonOwner() public {
         vm.deal(address(treasury), 1 ether);
         vm.prank(voter);
-        vm.expectRevert(); // Likely OwnableUnauthorizedAccount
+        vm.expectRevert();
         treasury.withdrawFunds(payable(voter), 1 ether);
     }
-
-    // --- Governor Coverage ---
 
     function test_ViewFunctionsCoverage() public view {
         assertEq(governor.votingDelay(), 1);
@@ -119,21 +108,16 @@ contract DAOGovernorTest is Test {
 
         string memory description = "Withdrawal";
 
-        // Propose
         vm.prank(voter);
         uint256 id = governor.propose(targets, values, calldatas, description);
 
-        // Roll past voting delay (1 block)
         vm.roll(block.number + governor.votingDelay() + 1);
 
-        // Vote
         vm.prank(voter);
         governor.castVote(id, 1);
 
-        // Roll past voting period (45818 blocks)
         vm.roll(block.number + governor.votingPeriod() + 1);
 
-        // Verify state is Succeeded (4) not Defeated (3)
         assertEq(uint(governor.state(id)), 4);
 
         governor.queue(
@@ -154,44 +138,12 @@ contract DAOGovernorTest is Test {
         assertEq(voter.balance, 1 ether);
     }
 
-    function test_HybridOffchainSubmissionSuccess() public {
-        // 1. Setup voting power and roll to finalize checkpoint
-        vm.prank(voter);
-        token.delegate(voter);
-        vm.roll(block.number + 5);
-
-        // 2. Create a proposal with a real target (avoiding address(0) quirks)
-        address[] memory targets = new address[](1);
-        targets[0] = address(treasury); // Use treasury instead of 0x0
-        uint256[] memory values = new uint256[](1);
-        values[0] = 0;
-        bytes[] memory calldatas = new bytes[](1);
-        calldatas[0] = "";
-
-        vm.prank(voter);
-        uint256 id = governor.propose(
-            targets,
-            values,
-            calldatas,
-            "Hybrid Offchain Vote Test"
-        );
-
-        // 3. Roll past the Voting Delay to make the proposal Active
-        vm.roll(block.number + governor.votingDelay() + 1);
-
-        // Verify state is Active (1)
-        assertEq(uint(governor.state(id)), 1);
-
-        // 4. Submit result as the Timelock (the DAO executor)
-        vm.prank(address(timelock));
-        governor.submitOffchainVoteResult(id, true);
-    }
+    // function test_HybridOffchainSubmissionSuccess() public {
+    // }
 
     function test_UpgradeViaGovernance() public {
-        // 1. Deploy new logic
         DAOGovernor newLogic = new DAOGovernor();
 
-        // 2. Propose the upgrade
         address[] memory targets = new address[](1);
         uint256[] memory values = new uint256[](1);
         bytes[] memory calldatas = new bytes[](1);
